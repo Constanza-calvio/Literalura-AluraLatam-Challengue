@@ -3,6 +3,7 @@ package com.aluracursos.desafio.literalura;
 import com.aluracursos.desafio.literalura.Dto.AuthorData;
 import com.aluracursos.desafio.literalura.Dto.BooksData;
 import com.aluracursos.desafio.literalura.Dto.BooksDataContainer;
+import com.aluracursos.desafio.literalura.Dto.Idioma;
 import com.aluracursos.desafio.literalura.models.Author;
 import com.aluracursos.desafio.literalura.models.Book;
 import com.aluracursos.desafio.literalura.repositories.AuthorRepository;
@@ -14,7 +15,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+// NO LOGRA BUSCAR LOS LIBROS POR TITULO ===== LOGRADO Y NO TENEMOS PROBLEMAS CON REPETICION DE AUTOR :D
+// TAMPOCO ME MUESTRA LA LISTA DE LIBROS REGISTRADOS  ====  logrado  y agrergamos otro meodo para buscar liubros segun el autor
+// ORDENAR VIZUALIZACION DE DATOS AL MOSTRAR AUTORES REGISTRADOS === LISTOOO
+// FALTA METODO 5 == METODO FUNCIUONANDO SIN NIGNUN PROBLEMA
+// FALTA METODO 6 == METODO FUNCIONA SIN NINGUN PROBLEMA
 
+//ADICIONES Al CODIGOOO
+// INCORPORAR QUE AL BUSCAR LIBROS ME ENTIENDA EL TITULO EN INGLES O EN ESPAÑOL
+// INCORPORAR METODO QUE ME BUSQUE LIBROS SEWGUN EL IDIMA QUE YO QUIERO , LUEGO QUE ME CONSULTE DE AUTOR O TITULO ESTOY BUSCANDOI Y HAGA LA CONSULTA EN LA API
 @Component
 public class Main {
 
@@ -49,11 +58,12 @@ public class Main {
 
             var menu = """
                     1 - Buscar libros por título
-                    2 - Mostrar libros registrados
-                    3 - Mostrar autores registrados
-                    4 - Autores vivos en determinado año
-                    5 - Buscar libros por idioma
-                    6 - Salir
+                    2 - Buscar libros por Autor 
+                    3 - Mostrar libros registrados
+                    4 - Mostrar autores registrados
+                    5 - Autores vivos en determinado año
+                    6 - Buscar libros por idioma
+                    7 - Salir
                     
                     
                     0 - Salir
@@ -72,24 +82,27 @@ public class Main {
                     buscarLibroPorTitulo();
                     break;
                 case 2:
-                    mostrarLibrosHistorial();
+                    buscarLibrosPorAutor();
                     break;
                 case 3:
-                    mostrarAutoresRegistrados();
+                    mostrarLibrosHistorial();
                     break;
                 case 4:
-                    autoresVivosPorAnio();
+                    mostrarAutoresRegistrados();
                     break;
                 case 5:
-                    buscarLibrosPorIdioma();
+                    autoresVivosPorAnio();
                     break;
                 case 6:
+                    buscarLibrosPorIdioma();
+                    break;
+                case 7:
                     salir();
                 case 0:
                     System.out.println("¡Gracias por usar nuestra App, Nos vemos pronto!");
                     break;
                 default:
-                    System.out.printf("Opción inválida\n");
+                    System.out.print("Opción inválida\n");
             }
         }
 
@@ -100,7 +113,7 @@ public class Main {
     }
 
     private BooksData booksData() {
-        System.out.println("Escribe el nombre del libro: ");
+        System.out.println("¿Cual es el nombre del libro que estas buscando?");
         var nombreLibro = teclado.nextLine();
         var json = consumeApi.obtainData(URL_BASE + nombreLibro.replace(" ", "%20"));
         BooksData datosLibro = conversor.takeData(json, BooksData.class);
@@ -113,135 +126,61 @@ public class Main {
         Book libro = new Book(datosLibro);
         return bookRepo.save(libro);
     }
-
-    //METODO PARA MOSTAR LIBRO POR TITULO
     private void buscarLibroPorTitulo() {
-        System.out.println("Por favor ingrese el nombre del libro que desea buscar:");
-
-// Revisión en la base de datos
+        System.out.println("Por favor ingrese el nombre del libro que desea buscar: ");
         var tituloBuscado = teclado.nextLine();
+
         Optional<Book> libroEnBD = bookRepo.findByTitulo(tituloBuscado);
 
         if (libroEnBD.isPresent()) {
-            // Si el libro ya existe en la base de datos
             System.out.println("Parece que ya has consultado por este título. ¡Aquí te muestro los datos!");
             System.out.println(libroEnBD.get());
             return;
         }
 
-// Si el libro no está en la base de datos, buscar en la API
         try {
             System.out.println("Buscando el libro en la API...");
 
-            // Realizar la consulta a la API
             String jsonResponse = consumeApi.obtainData(URL_BASE + "?search=" + tituloBuscado.replace(" ", "%20"));
-
-            // Deserialización de la respuesta JSON en un BooksDataContainer
             ObjectMapper mapper = new ObjectMapper();
             BooksDataContainer contenedor = mapper.readValue(jsonResponse, BooksDataContainer.class);
 
-            // Filtrar el libro que coincida con el título
             Optional<BooksData> libroEncontrado = contenedor.results().stream()
                     .filter(libro -> libro.titulo().equalsIgnoreCase(tituloBuscado))
                     .findFirst();
 
             if (libroEncontrado.isPresent()) {
-                // Crear la instancia de Book a partir del BooksData encontrado
                 BooksData data = libroEncontrado.get();
-                Book nuevoLibro = new Book(data);
 
-                // Buscar si el autor ya existe en la base de datos
-                Optional<Author> autorExistente = authorRepo.findByNombre(data.autor().isEmpty() ? "Autor Desconocido" : data.autor().get(0).nombre());
+                // Normaliza el nombre del autor desde la API
+                String nombreAutorApi = data.autor().isEmpty() ? "Autor Desconocido" : normalizarNombreAutor(data.autor().get(0).nombre());
+
+                // Trae todos los autores y busca uno que coincida con nombre normalizado
+                List<Author> autoresRegistrados = authorRepo.findAll();
+                Optional<Author> autorExistente = autoresRegistrados.stream()
+                        .filter(a -> normalizarNombreAutor(a.getNombre()).equalsIgnoreCase(nombreAutorApi))
+                        .findFirst();
 
                 Author autor;
                 if (autorExistente.isPresent()) {
-                    // Si el autor ya existe, usar la instancia existente
                     autor = autorExistente.get();
                 } else {
-                    // Si el autor no existe, crear uno nuevo y asignar los datos del autor
                     autor = new Author();
-                    autor.setNombre(data.autor().isEmpty() ? "Autor Desconocido" : data.autor().get(0).nombre());
+                    autor.setNombre(nombreAutorApi);
                     autor.setFechaNacimiento(data.autor().isEmpty() ? null : data.autor().get(0).fechaNacimiento());
                     autor.setFechaDefuncion(data.autor().isEmpty() ? null : data.autor().get(0).fechaDefuncion());
-                    authorRepo.save(autor); // Guardar el nuevo autor en la base de datos
+                    authorRepo.save(autor);
                 }
 
-                // Asignar el autor al libro
+                Book nuevoLibro = new Book(data);
                 nuevoLibro.setAutor(autor);
-
-                // Guardar el libro en la base de datos
                 bookRepo.save(nuevoLibro);
 
-                // Mostrar los resultados
                 System.out.println("Libro encontrado en la API y guardado en la base de datos:");
-                System.out.println(nuevoLibro.toString());
+                System.out.println(nuevoLibro);
+
             } else {
                 System.out.println("No se encontró ningún libro con el título: " + tituloBuscado + " en la API.");
-            }
-
-        } catch (Exception e) {
-            System.err.println("Error al buscar el libro en la API: " + e.getMessage());
-        }System.out.println("Por favor ingrese el nombre del libro que desea buscar:");
-
-// Revisión en la base de datos
-        var titulo = teclado.nextLine();
-        Optional<Book> librobusqueda = bookRepo.findByTitulo(titulo);
-
-        if (librobusqueda.isPresent()) {
-            // Si el libro ya existe en la base de datos
-            System.out.println("Parece que ya has consultado por este título. ¡Aquí te muestro los datos!");
-            System.out.println(librobusqueda.get());
-            return;
-        }
-
-// Si el libro no está en la base de datos, buscar en la API
-        try {
-            System.out.println("Buscando el libro en la API...");
-
-            // Realizar la consulta a la API
-            String jsonResponse = consumeApi.obtainData(URL_BASE + "?search=" + titulo.replace(" ", "%20"));
-
-            // Deserialización de la respuesta JSON en un BooksDataContainer
-            ObjectMapper mapper = new ObjectMapper();
-            BooksDataContainer contenedor = mapper.readValue(jsonResponse, BooksDataContainer.class);
-
-            // Filtrar el libro que coincida con el título
-            Optional<BooksData> libroEncontrado = contenedor.results().stream()
-                    .filter(libro -> libro.titulo().equalsIgnoreCase(titulo))
-                    .findFirst();
-
-            if (libroEncontrado.isPresent()) {
-                // Crear la instancia de Book a partir del BooksData encontrado
-                BooksData data = libroEncontrado.get();
-                Book nuevoLibro = new Book(data);
-
-                // Buscar si el autor ya existe en la base de datos
-                Optional<Author> autorExistente = authorRepo.findByNombre(data.autor().isEmpty() ? "Autor Desconocido" : data.autor().get(0).nombre());
-
-                Author autor;
-                if (autorExistente.isPresent()) {
-                    // Si el autor ya existe, usar la instancia existente
-                    autor = autorExistente.get();
-                } else {
-                    // Si el autor no existe, crear uno nuevo y asignar los datos del autor
-                    autor = new Author();
-                    autor.setNombre(data.autor().isEmpty() ? "Autor Desconocido" : data.autor().get(0).nombre());
-                    autor.setFechaNacimiento(data.autor().isEmpty() ? null : data.autor().get(0).fechaNacimiento());
-                    autor.setFechaDefuncion(data.autor().isEmpty() ? null : data.autor().get(0).fechaDefuncion());
-                    authorRepo.save(autor); // Guardar el nuevo autor en la base de datos
-                }
-
-                // Asignar el autor al libro
-                nuevoLibro.setAutor(autor);
-
-                // Guardar el libro en la base de datos
-                bookRepo.save(nuevoLibro);
-
-                // Mostrar los resultados
-                System.out.println("Libro encontrado en la API y guardado en la base de datos:");
-                System.out.println(nuevoLibro.toString());
-            } else {
-                System.out.println("No se encontró ningún libro con el título: " + titulo + " en la API.");
             }
 
         } catch (Exception e) {
@@ -249,8 +188,146 @@ public class Main {
         }
     }
 
+
+
+    //METODO PARA BUSCAR AUTOR NOMBRE SIN PROBLEMAS PARA APLICARE AL OTRO METODO DE ABAJO
+    private boolean autorCoincide(String nombreDesdeApi, String nombreUsuario) {
+        String apiNombre = nombreDesdeApi.toLowerCase().replace(",", "").trim(); // austen jane
+        String usuarioNombre = nombreUsuario.toLowerCase().trim(); // jane austen
+
+        // Separar por espacios
+        String[] partes = usuarioNombre.split(" ");
+        if (partes.length == 2) {
+            String nombre = partes[0]; // jane
+            String apellido = partes[1]; // austen
+            String invertido = apellido + " " + nombre; // austen jane
+
+            return apiNombre.contains(usuarioNombre) || apiNombre.contains(invertido);
+        }
+        return apiNombre.contains(usuarioNombre);
+    }
+
+    private String normalizarNombreAutor(String nombre) {
+        if (nombre == null || nombre.isEmpty()) {
+            return "Autor Desconocido";
+        }
+        nombre = nombre.trim();
+        if (nombre.contains(",")) {
+            String[] partes = nombre.split(",");
+            if (partes.length == 2) {
+                // Invierte "Apellido, Nombre" a "Nombre Apellido"
+                return partes[1].trim() + " " + partes[0].trim();
+            }
+        }
+        return nombre;
+    }
+
+    private String normalizarNombreUsuario(String nombreUsuario) {
+        return nombreUsuario.trim().toLowerCase();
+    }
+
+    private void buscarLibrosPorAutor() {
+        System.out.println("Por favor ingrese el nombre del autor que desea buscar:");
+        String nombreAutorIngresado = teclado.nextLine().trim();
+
+        // Normaliza la entrada del usuario para comparación
+        String nombreUsuarioNormalizado = normalizarNombreUsuario(nombreAutorIngresado);
+
+        // Buscar autor en base de datos comparando nombre normalizado
+        Optional<Author> autorExistente = authorRepo.findAll().stream()
+                .filter(a -> {
+                    // Normaliza el nombre del autor de la BD para comparar
+                    String nombreAutorBD = normalizarNombreUsuario(normalizarNombreAutor(a.getNombre()));
+                    return nombreAutorBD.equals(nombreUsuarioNormalizado);
+                })
+                .findFirst();
+
+        if (autorExistente.isPresent()) {
+            List<Book> libros = bookRepo.findByAutor(autorExistente.get());
+            if (!libros.isEmpty()) {
+                System.out.println("Estos son los libros que ya has consultado de este autor:");
+                libros.forEach(System.out::println);
+                return;
+            }
+        }
+
+        // Buscar en API si no está en BD
+        try {
+            System.out.println("Buscando libros del autor en la API...");
+            String jsonResponse = consumeApi.obtainData(URL_BASE + "?search=" + nombreAutorIngresado.replace(" ", "%20"));
+            ObjectMapper mapper = new ObjectMapper();
+            BooksDataContainer contenedor = mapper.readValue(jsonResponse, BooksDataContainer.class);
+
+            // Filtrar resultados por autor coincidente usando tu función autorCoincide
+            List<BooksData> librosAutor = contenedor.results().stream()
+                    .filter(libro -> libro.autor().stream()
+                            .anyMatch(a -> autorCoincide(a.nombre(), nombreAutorIngresado)))
+                    .toList();
+
+            if (librosAutor.isEmpty()) {
+                System.out.println("No se encontraron libros de " + nombreAutorIngresado + " en la API.");
+                return;
+            }
+
+            System.out.println("Libros encontrados del autor \"" + nombreAutorIngresado + "\":");
+            for (BooksData libro : librosAutor) {
+                String idioma = libro.idiomas().isEmpty() ? "Idioma desconocido" : libro.idiomas().get(0);
+                System.out.println("- " + libro.titulo() + " [Idioma: " + idioma + ", ID: " + libro.id() + "]");
+            }
+
+            System.out.println("\nPor favor ingresa el ID del libro que deseas consultar:");
+            int idSeleccionado = Integer.parseInt(teclado.nextLine().trim());
+
+            Optional<BooksData> libroSeleccionado = librosAutor.stream()
+                    .filter(libro -> libro.id() == idSeleccionado)
+                    .findFirst();
+
+            if (libroSeleccionado.isEmpty()) {
+                System.out.println("No se encontró un libro con ese ID entre los resultados.");
+                return;
+            }
+
+            BooksData data = libroSeleccionado.get();
+
+            // Normalizar nombre autor API para búsqueda en BD
+            String nombreAutorApi = data.autor().isEmpty() ? "Autor Desconocido" : normalizarNombreAutor(data.autor().get(0).nombre());
+
+            // Buscar o crear autor con nombre normalizado
+            Author autor = authorRepo.findAll().stream()
+                    .filter(a -> {
+                        String nombreBD = normalizarNombreUsuario(normalizarNombreAutor(a.getNombre()));
+                        String nombreApi = normalizarNombreUsuario(nombreAutorApi);
+                        return nombreBD.equals(nombreApi);
+                    })
+                    .findFirst()
+                    .orElseGet(() -> {
+                        Author nuevo = new Author();
+                        nuevo.setNombre(nombreAutorApi);
+                        nuevo.setFechaNacimiento(data.autor().isEmpty() ? null : data.autor().get(0).fechaNacimiento());
+                        nuevo.setFechaDefuncion(data.autor().isEmpty() ? null : data.autor().get(0).fechaDefuncion());
+                        return authorRepo.save(nuevo);
+                    });
+
+            // Crear y guardar el libro con el autor ya normalizado
+            Book nuevoLibro = new Book(data);
+            nuevoLibro.setAutor(autor);
+            bookRepo.save(nuevoLibro);
+
+            System.out.println("\nInformación detallada del libro seleccionado:");
+            System.out.println(nuevoLibro);
+
+        } catch (Exception e) {
+            System.err.println("Error al buscar libros del autor: " + e.getMessage());
+        }
+    }
+
+
+
+
+
     //METODO PARA MOSTRAR LIBROS REGISTRADOS
     private void mostrarLibrosHistorial() {
+        System.out.println("Encontramos tu historial de consulta! ↓↓↓↓");
         List<Book> librosRegistrados = bookRepo.findAll();
         librosRegistrados.stream()
                 .sorted(Comparator.comparing(libro -> libro.getAutor().getNombre()))
@@ -263,18 +340,19 @@ public class Main {
         List<Author> autoresRegistrados = authorRepo.findAll();
         // Ordena y recorre los autores
         autoresRegistrados.stream()
-                .sorted(Comparator.comparing(Author::getNombre)) // Ordenar por nombre del autor
+                .sorted(Comparator.comparing(Author::getNombre))
                 .forEach(author -> {
-                    // Utiliza el toString del record AuthorData para mostrar los datos del autor
-                    AuthorData authorData = new AuthorData(author.getNombre(),
-                            author.getFechaNacimiento(),
-                            author.getFechaDefuncion());
-                    System.out.println(authorData);
-                    // Lista los libros del autor
-                    System.out.println("Libros registrados de " + author.getNombre());
+                    String salida = String.format("Autor: %s | Nacido: %s | Fallecido: %s",
+                            author.getNombre(),
+                            author.getFechaNacimiento() != null ? author.getFechaNacimiento() : "Desconocido",
+                            author.getFechaDefuncion() != null ? author.getFechaDefuncion() : "Desconocido");
+                    System.out.println(salida);
+
+                    System.out.println("Libros registrados de " + author.getNombre() + ":");
                     author.getLibros().forEach(libro -> System.out.println("  - " + libro.getTitulo()));
                     System.out.println();
                 });
+
     }
 
     //METODO PARA MOSTRAR AUTORES VIVOS SEGUN AÑO
@@ -306,21 +384,16 @@ public class Main {
                     """);
         }
     }
-    private void buscarLibrosPorIdioma(){
 
-    }
-}
-
-    /*private List<Book> libroSegunIdioma(String idioma) {
+    private List<Book> libroSegunIdioma(String idioma) {
         Idioma dato = Idioma.fromString(idioma);
         System.out.println("Lenguaje buscado: " + dato);
-
         return bookRepo.findByIdiomas(dato);
     }
 
     //METODO PARA BUSCAR LIBROS SEGUN IDIOMA
     private void buscarLibrosPorIdioma() {
-        System.out.println("Ingresa el idioma para buscar libros");
+        System.out.println("Ingresa el idioma para buscar en suus registros que libros coinciden");
 
         while (true) {
             var menu = """
@@ -346,15 +419,16 @@ public class Main {
                 // Intentar buscar los libros por idioma
                 List<Book> libros = libroSegunIdioma("[" + opcion + "]");
                 if (libros.isEmpty()) {
-                    System.out.println("No se encontraron libros en el idioma especificado.");
+                    System.out.println("**************No se encontraron libros en el idioma especificado dentro de tus registros.**************");
                 } else {
+                    System.out.println("**************Estos son los libros en tus registros que coinciden con el idioma *************");
                     libros.forEach(System.out::println);
                 }
             } catch (IllegalArgumentException e) {
-                System.out.println("Idioma no válido. Intente de nuevo.");
+                System.out.println("Idioma no válido. Intente de nuevo poniendo el codigo de idioma (en,es,fr,pt o salir).");
             }
         }
     }
-}*/
+}
 
 

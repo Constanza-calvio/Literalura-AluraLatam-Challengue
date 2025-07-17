@@ -14,7 +14,8 @@ public class Book {
     @Enumerated(EnumType.STRING)
     private Idioma idiomas;
     private  double numeroDescargas;
-    @ManyToOne (fetch = FetchType.EAGER,cascade = CascadeType.PERSIST)
+
+    @ManyToOne (fetch = FetchType.EAGER)
     @JoinColumn(name = "autor_id", nullable = false)
     private Author autor;
 
