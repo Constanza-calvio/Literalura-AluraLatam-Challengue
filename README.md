@@ -1,5 +1,6 @@
 <h1 align="center"> # Desafio Literalura App </h1> 
-![177780987_0d28cc5c-3f7c-45ac-ac7b-9abc6bbf90f6](https://github.com/user-attachments/assets/94719286-bc98-437a-a56e-2776dabcfeed)
+
+<img width="5376" height="3584" alt="mujer en bilioteca rodeada de plantas trabajando en un pc" src="https://github.com/user-attachments/assets/46d2efb7-0196-4c87-b42e-406c3802973b" />
 
 <h2>¿De que trata este Desafio?</h2>
 <p> Este Desafio, llamado "Desafío Literalura", fue realizado como parte de la formación en el programa Oracle Next Education (Oracle ONE),
