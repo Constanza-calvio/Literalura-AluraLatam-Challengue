@@ -1,4 +1,4 @@
-<h1 align="center"> # Desafio Literalura App </h1> 
+<h1 align="center">Desafio Literalura App </h1> 
 
 <img width="5376" height="3584" alt="mujer en bilioteca rodeada de plantas trabajando en un pc" src="https://github.com/user-attachments/assets/46d2efb7-0196-4c87-b42e-406c3802973b" />
 
